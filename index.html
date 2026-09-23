@@ -7,9 +7,9 @@
     <style>
         body { font-family: sans-serif; padding: 20px; background: #121214; color: #fff; text-align: center; }
         .card { background: #202024; padding: 30px; border-radius: 8px; max-width: 500px; margin: 40px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        .btn { display: inline-block; background: #ff4444; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; text-decoration: none; font-size: 16px; margin: 15px 0; }
+        .btn { display: inline-block; background: #ff4444; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; text-decoration: none; font-size: 16px; }
         .btn:hover { background: #cc3333; }
-        #log { background: #000; color: #00ff00; padding: 15px; border-radius: 4px; height: 250px; overflow-y: auto; font-family: monospace; text-align: left; margin-top: 20px; border: 1px solid #333; }
+        #log { background: #000; color: #00ff00; padding: 15px; border-radius: 4px; height: 250px; overflow-y: auto; font-family: monospace; text-align: left; margin-top: 20px; border: 1px solid #333; white-space: pre-wrap; }
         .success-text { color: #00e676; font-weight: bold; }
     </style>
 </head>
@@ -26,15 +26,18 @@
 </div>
 
 <script>
-// Your active registered alphanumeric App ID from Deriv portal
-const MY_NUMERIC_APP_ID = '34tMhDQvLWi9URJEwX49o'; 
+// Use your real Deriv numeric app ID from the Deriv dashboard.
+const MY_NUMERIC_APP_ID = '12345';
 
-// Build the secure login link dynamically handling alphabets properly
-document.getElementById('loginBtn').href = `https://deriv.com{MY_NUMERIC_APP_ID}&i=en&brand=deriv';
+// Correct Deriv OAuth URL
+const loginUrl = `https://oauth.deriv.com/oauth2/authorize?app_id=${MY_NUMERIC_APP_ID}&l=en`;
+document.getElementById('loginBtn').href = loginUrl;
 
 function logMessage(msg) {
     const logDiv = document.getElementById('log');
-    logDiv.innerHTML += '<div>' + msg + '</div>';
+    const line = document.createElement('div');
+    line.textContent = msg;
+    logDiv.appendChild(line);
     logDiv.scrollTop = logDiv.scrollHeight;
 }
 
@@ -57,31 +60,39 @@ function initWebSocketScanner() {
     }
 
     logMessage("Connecting to secure Deriv WebSocket server...");
-    const ws = new WebSocket(`wss://://derivws.com{MY_NUMERIC_APP_ID}`);
+    const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${MY_NUMERIC_APP_ID}`);
 
     ws.onopen = function() {
-        logMessage("<span class='success-text'>🟢 WebSocket Connected! Verifying token...</span>");
-        ws.send(JSON.stringify({ "authorize": token }));
+        logMessage("🟢 WebSocket connected! Verifying token...");
+        ws.send(JSON.stringify({ authorize: token }));
     };
 
     ws.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        
-        if (data.msg_type === 'authorize' && !data.error) {
-            logMessage("<span class='success-text'>🚀 Login Successful! App is fully linked.</span>");
-            logMessage("Subscribing to Volatility 100 Index (R_100) data ticks...");
-            ws.send(JSON.stringify({ "ticks": "R_100" }));
-        } 
-        else if (data.error) {
-            logMessage(`🔴 Deriv API Error: ${data.error.message}`);
-        } 
-        else if (data.tick) {
-            logMessage(`📈 Tick movement [${data.tick.symbol}]: $${data.tick.quote}`);
+        try {
+            const data = JSON.parse(event.data);
+
+            if (data.error) {
+                logMessage(`🔴 Deriv API Error: ${data.error.message || JSON.stringify(data.error)}`);
+                return;
+            }
+
+            if (data.msg_type === 'authorize') {
+                logMessage("🚀 Login successful! App is fully linked.");
+                logMessage("Subscribing to Volatility 100 Index (R_100) data ticks...");
+                ws.send(JSON.stringify({ ticks: 'R_100' }));
+                return;
+            }
+
+            if (data.tick) {
+                logMessage(`📈 Tick movement [${data.tick.symbol}]: $${data.tick.quote}`);
+            }
+        } catch (err) {
+            logMessage(`⚠️ Failed to parse message: ${err.message}`);
         }
     };
 
     ws.onerror = function() {
-        logMessage("🔴 WebSocket connection error. Verify your App ID is active.");
+        logMessage("🔴 WebSocket connection error. Verify your App ID is active and your token is valid.");
     };
 
     ws.onclose = function() {
