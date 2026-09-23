@@ -1,1 +1,102 @@
-# Darwin18
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Deriv Market Scanner</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #121214; color: #fff; text-align: center; }
+        .card { background: #202024; padding: 30px; border-radius: 8px; max-width: 500px; margin: 40px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .btn { display: inline-block; background: #ff4444; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; text-decoration: none; font-size: 16px; margin: 15px 0; }
+        .btn:hover { background: #cc3333; }
+        #log { background: #000; color: #00ff00; padding: 15px; border-radius: 4px; height: 250px; overflow-y: auto; font-family: monospace; text-align: left; margin-top: 20px; border: 1px solid #333; }
+        .success-text { color: #00e676; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Deriv OAuth 2.0 Scanner</h2>
+    <p>Click below to log in securely through Deriv. Once authorized, your live market feed will start automatically.</p>
+    
+    <!-- ⚠️ STOP: REPLACE THE APP_ID BELOW WITH YOUR ACTUAL NUMERIC APP ID FROM DERIV -->
+    <a id="loginBtn" href="#" class="btn">🔐 Log In via Deriv</a>
+    
+    <h3>Live WebSocket Stream:</h3>
+    <div id="log">Awaiting authentication. Click the button above to begin...</div>
+</div>
+
+<script>
+// ⚠️ REPLACE THIS STRING WITH YOUR ACTUAL NUMERIC APP ID NUMBER FROM DERIV
+const MY_NUMERIC_APP_ID = '34tMhDQvLWi9URJEwX49o'; 
+
+// Build the secure login link dynamically
+document.getElementById('loginBtn').href = `https://deriv.com{MY_NUMERIC_APP_ID}`;
+
+function logMessage(msg) {
+    const logDiv = document.getElementById('log');
+    logDiv.innerHTML += '<div>' + msg + '</div>';
+    logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+// 1. Automatically grab the token Deriv sends back in the URL string
+function getOAuthToken() {
+    const urlParams = new URLSearchParams(window.location.search);
+    let token = urlParams.get('token1');
+    if (!token && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        token = hashParams.get('token1');
+    }
+    return token;
+}
+
+// 2. Open the WebSocket connection using the App ID and Token
+function initWebSocketScanner() {
+    const token = getOAuthToken();
+
+    if (!token) {
+        logMessage("Awaiting authorization step. Please click 'Log In via Deriv' above.");
+        return;
+    }
+
+    logMessage("Connecting to secure Deriv WebSocket server...");
+    const ws = new WebSocket(`wss://://derivws.com{MY_NUMERIC_APP_ID}`);
+
+    ws.onopen = function() {
+        logMessage("<span class='success-text'>🟢 WebSocket Connected! Verifying token...</span>");
+        ws.send(JSON.stringify({ "authorize": token }));
+    };
+
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        
+        if (data.msg_type === 'authorize' && !data.error) {
+            logMessage("<span class='success-text'>🚀 Login Successful! App is fully linked.</span>");
+            logMessage("Subscribing to Volatility 100 Index (R_100) data ticks...");
+            
+            // Subscribing to Volatility 100 asset feed
+            ws.send(JSON.stringify({ "ticks": "R_100" }));
+        } 
+        else if (data.error) {
+            logMessage(`🔴 Deriv API Error: ${data.error.message}`);
+        } 
+        else if (data.tick) {
+            logMessage(`📈 Tick movement [${data.tick.symbol}]: $${data.tick.quote}`);
+        }
+    };
+
+    ws.onerror = function() {
+        logMessage("🔴 WebSocket connection error. Verify your App ID is active.");
+    };
+
+    ws.onclose = function() {
+        logMessage("⚪ Connection closed.");
+    };
+}
+
+// Run connection rules as soon as the page renders
+window.onload = initWebSocketScanner;
+</script>
+
+</body>
+</html>
