@@ -27,10 +27,10 @@
 
 <script>
 // Your active registered alphanumeric App ID from Deriv portal
-const MY_NUMERIC_APP_ID = '34tgS9vo9ASofeBE3cR7V'; 
+const MY_NUMERIC_APP_ID = '34tMhDQvLWi9URJEwX49o'; 
 
 // Build the secure login link dynamically handling alphabets properly
-document.getElementById('loginBtn').href = `https://deriv.com{encodeURIComponent(MY_NUMERIC_APP_ID)}`;
+document.getElementById('loginBtn').href = `https://deriv.com{MY_NUMERIC_APP_ID}&i=en&brand=deriv';
 
 function logMessage(msg) {
     const logDiv = document.getElementById('log');
